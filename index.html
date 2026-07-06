@@ -865,7 +865,7 @@ function renderPanierAchat(){
 }
 function retirerLigneAchat(i){ panierAchat.splice(i,1); renderPanierAchat(); }
 async function validerAchat(){
-  if(panierAchat.length===0){ toast('Le bon d\\'achat est vide'); return; }
+  if(panierAchat.length===0){ toast("Le bon d'achat est vide"); return; }
   const fournisseurId = document.getElementById('achatFournisseur').value || null;
   const total = panierAchat.reduce((s,l)=>s+l.qte*l.prixAchat,0);
   let montantPaye = parseFloat(document.getElementById('achatMontantPaye').value);
@@ -1021,3 +1021,4 @@ init();
 </script>
 </body>
 </html>
+
