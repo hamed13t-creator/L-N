@@ -1,4 +1,4 @@
-const CACHE = 'mesventes-v1';
+const CACHE = 'mesventes-v2';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -13,8 +13,16 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// Réseau en priorité (pour toujours avoir la dernière version), et on ne
+// retombe sur le cache que si le téléphone est hors-ligne.
 self.addEventListener('fetch', (e) => {
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).catch(() => cached))
+    fetch(e.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
