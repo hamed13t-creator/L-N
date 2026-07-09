@@ -500,8 +500,17 @@ function openDB(){
       if(!d.objectStoreNames.contains('retoursVente')) d.createObjectStore('retoursVente',{keyPath:'id'});
       if(!d.objectStoreNames.contains('retoursAchat')) d.createObjectStore('retoursAchat',{keyPath:'id'});
     };
-    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onsuccess = (e) => {
+      db = e.target.result;
+      // Si une future mise à jour est nécessaire pendant que cette page est ouverte,
+      // on ferme proprement cette connexion pour ne jamais bloquer l'ouverture ailleurs.
+      db.onversionchange = () => { db.close(); };
+      resolve(db);
+    };
     req.onerror = (e) => reject(e);
+    req.onblocked = () => {
+      toast("Ferme les autres onglets/fenêtres de l'app, puis rouvre-la");
+    };
   });
 }
 
