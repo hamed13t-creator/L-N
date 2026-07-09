@@ -189,6 +189,10 @@
   <section class="view" id="view-clients">
     <h2 class="title">Clients</h2>
     <div class="card search-box"><input type="text" id="clientSearch" placeholder="Rechercher un client..." oninput="renderClients()"></div>
+    <div class="segmented">
+      <button id="clientSortDette" class="active" onclick="setClientSort('dette')">Par dette</button>
+      <button id="clientSortCA" onclick="setClientSort('ca')">Meilleurs clients</button>
+    </div>
     <div class="card" id="clientListCard"></div>
   </section>
 
@@ -198,6 +202,7 @@
     <div class="segmented">
       <button id="achatsTabNouvel" class="active" onclick="switchAchatsTab('nouvel')">Nouvel achat</button>
       <button id="achatsTabFournisseurs" onclick="switchAchatsTab('fournisseurs')">Fournisseurs</button>
+      <button id="achatsTabStock" onclick="switchAchatsTab('stock')">Stock</button>
     </div>
 
     <div id="achatsNouvel">
@@ -235,6 +240,18 @@
       <div class="card"><button class="btn outline block" onclick="openFournisseurModal()">+ Nouveau fournisseur</button></div>
       <div class="card" id="fournisseurListCard"></div>
     </div>
+
+    <div id="achatsStock" style="display:none;">
+      <div class="card row">
+        <div>
+          <div class="meta">Valeur totale du stock (au prix d'achat)</div>
+          <div class="amount" id="stockValeurTotale" style="font-size:19px;">0</div>
+        </div>
+        <button class="btn outline sm" onclick="openProduitModal()">+ Produit</button>
+      </div>
+      <div class="card search-box"><input type="text" id="stockSearch" placeholder="Rechercher un produit..." oninput="renderStock()"></div>
+      <div class="card" id="stockListCard"></div>
+    </div>
   </section>
 
   <!-- HISTORIQUE -->
@@ -260,6 +277,7 @@
       <div class="stat amber"><div class="v" id="statBenefice">0</div><div class="l">Bénéfice estimé</div></div>
       <div class="stat"><div class="v" id="statNbVentes">0</div><div class="l">Nombre de ventes</div></div>
       <div class="stat"><div class="v" id="statCredits">0</div><div class="l">Total crédits clients</div></div>
+      <div class="stat"><div class="v" id="statValeurStock">0</div><div class="l">Valeur de stock</div></div>
     </div>
 
     <h2 class="title" style="margin-top:16px;">Caisse</h2>
@@ -304,7 +322,8 @@
 <div class="modal-bg" id="modalProduit">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modalProduit')">×</button>
-    <h3>Nouveau produit</h3>
+    <h3 id="produitModalTitle">Nouveau produit</h3>
+    <input type="hidden" id="pId">
     <label class="field">Nom du produit</label>
     <input type="text" id="pNom" placeholder="Ex: Sac de riz 5kg">
     <div class="grid2">
@@ -327,6 +346,10 @@
     <input type="text" id="cNom" placeholder="Nom du client">
     <label class="field">Téléphone</label>
     <input type="text" id="cTel" placeholder="Numéro (optionnel)" inputmode="tel">
+    <div id="cSoldeInitialBox">
+      <label class="field">Solde initial (ancienne dette, si le client en a une)</label>
+      <input type="number" id="cSoldeInitial" value="0" min="0" step="any" inputmode="decimal">
+    </div>
     <button class="btn amber block" style="margin-top:14px;" onclick="enregistrerClient()">Enregistrer</button>
   </div>
 </div>
@@ -341,6 +364,10 @@
     <input type="text" id="fNom" placeholder="Nom du fournisseur">
     <label class="field">Téléphone</label>
     <input type="text" id="fTel" placeholder="Numéro (optionnel)" inputmode="tel">
+    <div id="fSoldeInitialBox">
+      <label class="field">Solde initial (dette existante envers lui)</label>
+      <input type="number" id="fSoldeInitial" value="0" min="0" step="any" inputmode="decimal">
+    </div>
     <button class="btn amber block" style="margin-top:14px;" onclick="enregistrerFournisseur()">Enregistrer</button>
   </div>
 </div>
@@ -355,6 +382,10 @@
       <div class="row">
         <span>Solde (crédit dû)</span>
         <span class="amount" id="cdSolde">0</span>
+      </div>
+      <div class="row" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">
+        <span>Chiffre d'affaires réalisé</span>
+        <span class="amount pos" id="cdCA">0</span>
       </div>
     </div>
     <div class="grid2">
@@ -376,6 +407,10 @@
       <div class="row">
         <span>Solde (nous devons)</span>
         <span class="amount" id="fdSolde">0</span>
+      </div>
+      <div class="row" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">
+        <span>Achats réalisés (total)</span>
+        <span class="amount pos" id="fdCA">0</span>
       </div>
     </div>
     <div class="grid2">
@@ -418,13 +453,38 @@
   </div>
 </div>
 
+<!-- MODAL: Detail vente (réimpression + retour) -->
+<div class="modal-bg" id="modalVenteDetail">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalVenteDetail')">×</button>
+    <h3 id="vdNumero">Vente</h3>
+    <div class="meta" id="vdInfo"></div>
+    <div class="card" style="margin-top:10px;" id="vdLignesCard"></div>
+    <div class="grid2" style="margin-top:10px;">
+      <button class="btn" onclick="reimprimerVente()">🖨️ Réimprimer</button>
+      <button class="btn red" onclick="validerRetourVente()">Valider le retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detail achat (retour marchandise) -->
+<div class="modal-bg" id="modalAchatDetail">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalAchatDetail')">×</button>
+    <h3 id="adNumero">Achat</h3>
+    <div class="meta" id="adInfo"></div>
+    <div class="card" style="margin-top:10px;" id="adLignesCard"></div>
+    <button class="btn red block" style="margin-top:10px;" onclick="validerRetourAchat()">Valider le retour marchandise</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 /* ===================== BASE DE DONNÉES (IndexedDB) ===================== */
 let db;
 const DB_NAME = 'mesventes_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -437,6 +497,8 @@ function openDB(){
       if(!d.objectStoreNames.contains('ventes')) d.createObjectStore('ventes',{keyPath:'id'});
       if(!d.objectStoreNames.contains('achats')) d.createObjectStore('achats',{keyPath:'id'});
       if(!d.objectStoreNames.contains('caisse')) d.createObjectStore('caisse',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('retoursVente')) d.createObjectStore('retoursVente',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('retoursAchat')) d.createObjectStore('retoursAchat',{keyPath:'id'});
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
     req.onerror = (e) => reject(e);
@@ -463,7 +525,7 @@ function put(store, obj){
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
 /* ===================== ETAT GLOBAL ===================== */
-let PRODUITS=[], CLIENTS=[], FOURNISSEURS=[], VENTES=[], ACHATS=[], CAISSE=[];
+let PRODUITS=[], CLIENTS=[], FOURNISSEURS=[], VENTES=[], ACHATS=[], CAISSE=[], RETOURS_VENTE=[], RETOURS_ACHAT=[];
 let panierVente = [];
 let panierAchat = [];
 let modePaiementVente = 'comptant';
@@ -496,29 +558,77 @@ function switchView(name){
   if(name==='historique') renderHistorique();
   if(name==='bilan') renderBilan();
 }
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+let currentModalId = null;
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  currentModalId = id;
+  history.pushState({modal:id}, '');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(currentModalId === id){
+    currentModalId = null;
+    if(history.state && history.state.modal === id){
+      history.back();
+    }
+  }
+}
+window.addEventListener('popstate', function(){
+  if(currentModalId){
+    document.getElementById(currentModalId).classList.remove('open');
+    currentModalId = null;
+  }
+});
 
 /* ===================== PRODUITS ===================== */
-function openProduitModal(){
-  document.getElementById('pNom').value='';
-  document.getElementById('pPrixAchat').value='';
-  document.getElementById('pPrixVente').value='';
-  document.getElementById('pStock').value='0';
+function openProduitModal(id){
+  document.getElementById('pId').value = id||'';
+  document.getElementById('produitModalTitle').textContent = id ? 'Modifier produit' : 'Nouveau produit';
+  if(id){
+    const p = PRODUITS.find(x=>x.id===id);
+    document.getElementById('pNom').value = p.nom;
+    document.getElementById('pPrixAchat').value = p.prixAchat;
+    document.getElementById('pPrixVente').value = p.prixVente;
+    document.getElementById('pStock').value = p.stock;
+  } else {
+    document.getElementById('pNom').value='';
+    document.getElementById('pPrixAchat').value='';
+    document.getElementById('pPrixVente').value='';
+    document.getElementById('pStock').value='0';
+  }
   openModal('modalProduit');
 }
 async function enregistrerProduit(){
+  const id = document.getElementById('pId').value;
   const nom = document.getElementById('pNom').value.trim();
   const prixAchat = parseFloat(document.getElementById('pPrixAchat').value)||0;
   const prixVente = parseFloat(document.getElementById('pPrixVente').value)||0;
   const stock = parseFloat(document.getElementById('pStock').value)||0;
   if(!nom){ toast('Indique le nom du produit'); return; }
-  const p = {id:uid(), nom, prixAchat, prixVente, stock};
+  let p;
+  if(id){ p = PRODUITS.find(x=>x.id===id); p.nom=nom; p.prixAchat=prixAchat; p.prixVente=prixVente; p.stock=stock; }
+  else { p = {id:uid(), nom, prixAchat, prixVente, stock}; PRODUITS.push(p); }
   await put('produits', p);
-  PRODUITS.push(p);
   remplirSelectProduits();
+  renderStock();
   closeModal('modalProduit');
-  toast('Produit ajouté');
+  toast('Produit enregistré');
+}
+function renderStock(){
+  const listCard = document.getElementById('stockListCard');
+  if(!listCard) return;
+  const q = (document.getElementById('stockSearch').value||'').toLowerCase();
+  const list = PRODUITS.filter(p=>p.nom.toLowerCase().includes(q)).sort((a,b)=>a.nom.localeCompare(b.nom));
+  document.getElementById('stockValeurTotale').textContent = fmt(PRODUITS.reduce((s,p)=>s+(p.stock||0)*(p.prixAchat||0),0));
+  if(list.length===0){ listCard.innerHTML = '<div class="empty">Aucun produit</div>'; return; }
+  listCard.innerHTML = list.map(p=>`
+    <div class="list-item" onclick="openProduitModal('${p.id}')" style="cursor:pointer;">
+      <div>
+        <div class="name">${p.nom}</div>
+        <div class="meta">Achat ${fmt(p.prixAchat)} · Vente ${fmt(p.prixVente)} · Valeur ${fmt((p.stock||0)*(p.prixAchat||0))}</div>
+      </div>
+      <div class="amount">${fmt(p.stock)}</div>
+    </div>`).join('');
 }
 function remplirSelectProduits(){
   const opts = '<option value="">-- Choisir un produit --</option>' + PRODUITS.map(p=>
@@ -656,6 +766,151 @@ function afficherRecuVente(vente){
   openModal('modalRecu');
 }
 
+/* ===================== DETAIL VENTE / REIMPRESSION / RETOUR ===================== */
+function openVenteDetail(id){
+  const v = VENTES.find(x=>x.id===id);
+  if(!v) return;
+  window._currentVenteId = id;
+  const c = CLIENTS.find(x=>x.id===v.clientId);
+  document.getElementById('vdNumero').textContent = v.numero;
+  document.getElementById('vdInfo').textContent = dateFR(v.date) + (c ? ' · '+c.nom : ' · Vente comptant') + ' · Total '+fmt(v.total);
+  document.getElementById('vdLignesCard').innerHTML = '<label class="field" style="margin-top:0;">Quantité à retourner (si besoin)</label>' +
+    v.items.map((l,i)=>{
+      const dejaRetourne = l.qteRetournee||0;
+      const restant = l.qte - dejaRetourne;
+      return `<div class="cart-line">
+        <div style="flex:1;">
+          <div style="font-weight:700; font-size:13.5px;">${l.nom}</div>
+          <div class="meta">Vendu: ${fmt(l.qte)} × ${fmt(l.prixVente)}${dejaRetourne>0?' · Déjà retourné: '+fmt(dejaRetourne):''}</div>
+        </div>
+        <input type="number" min="0" max="${restant}" step="any" value="0" style="width:70px;" id="vdQte_${i}" ${restant<=0?'disabled':''}>
+      </div>`;
+    }).join('');
+  openModal('modalVenteDetail');
+}
+function reimprimerVente(){
+  const v = VENTES.find(x=>x.id===window._currentVenteId);
+  if(v) afficherRecuVente(v);
+}
+async function validerRetourVente(){
+  const v = VENTES.find(x=>x.id===window._currentVenteId);
+  if(!v) return;
+  let montantRetour = 0;
+  const lignesRetour = [];
+  v.items.forEach((l,i)=>{
+    const input = document.getElementById('vdQte_'+i);
+    const qte = input ? (parseFloat(input.value)||0) : 0;
+    const restant = l.qte - (l.qteRetournee||0);
+    if(qte>0){
+      const q = Math.min(qte, restant);
+      montantRetour += q * l.prixVente;
+      lignesRetour.push({produitId:l.produitId, nom:l.nom, qte:q, prixVente:l.prixVente});
+      l.qteRetournee = (l.qteRetournee||0) + q;
+    }
+  });
+  if(lignesRetour.length===0){ toast('Indique au moins une quantité à retourner'); return; }
+
+  await put('ventes', v);
+
+  // Remettre en stock
+  for(const l of lignesRetour){
+    const p = PRODUITS.find(x=>x.id===l.produitId);
+    if(p){ p.stock = (p.stock||0) + l.qte; await put('produits', p); }
+  }
+  remplirSelectProduits();
+
+  // Impact client / caisse
+  const client = CLIENTS.find(c=>c.id===v.clientId);
+  let detteAnnulee = 0, remboursementCaisse = 0;
+  if(client){
+    detteAnnulee = Math.min(montantRetour, client.solde||0);
+    client.solde = Math.max(0, (client.solde||0) - detteAnnulee);
+    await put('clients', client);
+  }
+  remboursementCaisse = montantRetour - detteAnnulee;
+  if(remboursementCaisse>0){
+    const mvt = {id:uid(), date:nowISO(), type:'sortie', montant:remboursementCaisse, motif:'Retour vente '+v.numero, lien:{type:'retourVente', id:v.id}};
+    await put('caisse', mvt); CAISSE.push(mvt);
+  }
+
+  const retour = {id:uid(), date:nowISO(), venteId:v.id, clientId:v.clientId, items:lignesRetour, montant:montantRetour};
+  await put('retoursVente', retour); RETOURS_VENTE.push(retour);
+
+  closeModal('modalVenteDetail');
+  renderClients(); renderHistorique(); renderStock();
+  toast('Retour enregistré : '+fmt(montantRetour));
+}
+
+/* ===================== DETAIL ACHAT / RETOUR MARCHANDISE ===================== */
+function openAchatDetail(id){
+  const a = ACHATS.find(x=>x.id===id);
+  if(!a) return;
+  window._currentAchatId = id;
+  const f = FOURNISSEURS.find(x=>x.id===a.fournisseurId);
+  document.getElementById('adNumero').textContent = a.numero;
+  document.getElementById('adInfo').textContent = dateFR(a.date) + (f ? ' · '+f.nom : ' · Sans fournisseur') + ' · Total '+fmt(a.total);
+  document.getElementById('adLignesCard').innerHTML = '<label class="field" style="margin-top:0;">Quantité à retourner (si besoin)</label>' +
+    a.items.map((l,i)=>{
+      const dejaRetourne = l.qteRetournee||0;
+      const restant = l.qte - dejaRetourne;
+      return `<div class="cart-line">
+        <div style="flex:1;">
+          <div style="font-weight:700; font-size:13.5px;">${l.nom}</div>
+          <div class="meta">Acheté: ${fmt(l.qte)} × ${fmt(l.prixAchat)}${dejaRetourne>0?' · Déjà retourné: '+fmt(dejaRetourne):''}</div>
+        </div>
+        <input type="number" min="0" max="${restant}" step="any" value="0" style="width:70px;" id="adQte_${i}" ${restant<=0?'disabled':''}>
+      </div>`;
+    }).join('');
+  openModal('modalAchatDetail');
+}
+async function validerRetourAchat(){
+  const a = ACHATS.find(x=>x.id===window._currentAchatId);
+  if(!a) return;
+  let montantRetour = 0;
+  const lignesRetour = [];
+  a.items.forEach((l,i)=>{
+    const input = document.getElementById('adQte_'+i);
+    const qte = input ? (parseFloat(input.value)||0) : 0;
+    const restant = l.qte - (l.qteRetournee||0);
+    if(qte>0){
+      const q = Math.min(qte, restant);
+      montantRetour += q * l.prixAchat;
+      lignesRetour.push({produitId:l.produitId, nom:l.nom, qte:q, prixAchat:l.prixAchat});
+      l.qteRetournee = (l.qteRetournee||0) + q;
+    }
+  });
+  if(lignesRetour.length===0){ toast('Indique au moins une quantité à retourner'); return; }
+
+  await put('achats', a);
+
+  // Retirer du stock (marchandise rendue au fournisseur)
+  for(const l of lignesRetour){
+    const p = PRODUITS.find(x=>x.id===l.produitId);
+    if(p){ p.stock = Math.max(0,(p.stock||0) - l.qte); await put('produits', p); }
+  }
+  remplirSelectProduits();
+
+  const fournisseur = FOURNISSEURS.find(f=>f.id===a.fournisseurId);
+  let detteAnnulee = 0, remboursementCaisse = 0;
+  if(fournisseur){
+    detteAnnulee = Math.min(montantRetour, fournisseur.solde||0);
+    fournisseur.solde = Math.max(0, (fournisseur.solde||0) - detteAnnulee);
+    await put('fournisseurs', fournisseur);
+  }
+  remboursementCaisse = montantRetour - detteAnnulee;
+  if(remboursementCaisse>0){
+    const mvt = {id:uid(), date:nowISO(), type:'entree', montant:remboursementCaisse, motif:'Retour marchandise - achat '+a.numero, lien:{type:'retourAchat', id:a.id}};
+    await put('caisse', mvt); CAISSE.push(mvt);
+  }
+
+  const retour = {id:uid(), date:nowISO(), achatId:a.id, fournisseurId:a.fournisseurId, items:lignesRetour, montant:montantRetour};
+  await put('retoursAchat', retour); RETOURS_ACHAT.push(retour);
+
+  closeModal('modalAchatDetail');
+  renderFournisseurs(); renderHistorique(); renderStock();
+  toast('Retour marchandise enregistré : '+fmt(montantRetour));
+}
+
 /* ===================== IMPRESSION BLUETOOTH (RawBT) ===================== */
 function imprimerRawBT(){
   const texte = window._dernierRecu || document.getElementById('recuTexte').textContent;
@@ -687,12 +942,14 @@ async function partagerRecu(){
 function openClientModal(id){
   document.getElementById('clientId').value = id||'';
   document.getElementById('clientModalTitle').textContent = id ? 'Modifier client' : 'Nouveau client';
+  document.getElementById('cSoldeInitialBox').style.display = id ? 'none' : 'block';
   if(id){
     const c = CLIENTS.find(x=>x.id===id);
     document.getElementById('cNom').value = c.nom;
     document.getElementById('cTel').value = c.tel||'';
   } else {
     document.getElementById('cNom').value=''; document.getElementById('cTel').value='';
+    document.getElementById('cSoldeInitial').value='0';
   }
   openModal('modalClient');
 }
@@ -703,16 +960,34 @@ async function enregistrerClient(){
   if(!nom){ toast('Indique le nom du client'); return; }
   let c;
   if(id){ c = CLIENTS.find(x=>x.id===id); c.nom=nom; c.tel=tel; }
-  else { c = {id:uid(), nom, tel, solde:0}; CLIENTS.push(c); }
+  else {
+    const soldeInitial = parseFloat(document.getElementById('cSoldeInitial').value)||0;
+    c = {id:uid(), nom, tel, solde:soldeInitial};
+    CLIENTS.push(c);
+  }
   await put('clients', c);
   remplirSelectClients(); renderClients();
   closeModal('modalClient');
   toast('Client enregistré');
 }
+function caClient(id){
+  return VENTES.filter(v=>v.clientId===id).reduce((s,v)=>s+v.total,0);
+}
+let clientSortMode = 'dette';
+function setClientSort(mode){
+  clientSortMode = mode;
+  document.getElementById('clientSortDette').classList.toggle('active', mode==='dette');
+  document.getElementById('clientSortCA').classList.toggle('active', mode==='ca');
+  renderClients();
+}
 function renderClients(){
   const q = (document.getElementById('clientSearch').value||'').toLowerCase();
-  const list = CLIENTS.filter(c=>c.nom.toLowerCase().includes(q))
-    .sort((a,b)=> (b.solde||0)-(a.solde||0));
+  let list = CLIENTS.filter(c=>c.nom.toLowerCase().includes(q));
+  if(clientSortMode==='ca'){
+    list = list.sort((a,b)=> caClient(b.id)-caClient(a.id));
+  } else {
+    list = list.sort((a,b)=> (b.solde||0)-(a.solde||0));
+  }
   const card = document.getElementById('clientListCard');
   if(list.length===0){ card.innerHTML = '<div class="empty">Aucun client. Ajoute-en un depuis une vente à crédit, ou :</div><button class="btn outline block" onclick="openClientModal()">+ Nouveau client</button>'; return; }
   card.innerHTML = '<button class="btn outline block" style="margin-bottom:8px;" onclick="openClientModal()">+ Nouveau client</button>' +
@@ -720,7 +995,7 @@ function renderClients(){
     <div class="list-item" onclick="openClientDetail('${c.id}')" style="cursor:pointer;">
       <div>
         <div class="name">${c.nom}</div>
-        <div class="meta">${c.tel||'—'}</div>
+        <div class="meta">${c.tel||'—'} · CA: ${fmt(caClient(c.id))}</div>
       </div>
       <div>
         ${ (c.solde||0)>0 ? `<span class="pill credit">Doit ${fmt(c.solde)}</span>` : `<span class="pill ok">A jour</span>` }
@@ -734,10 +1009,11 @@ function openClientDetail(id){
   document.getElementById('cdTel').textContent = c.tel||'';
   document.getElementById('cdSolde').textContent = fmt(c.solde||0);
   document.getElementById('cdSolde').className = 'amount ' + ((c.solde||0)>0?'neg':'pos');
+  document.getElementById('cdCA').textContent = fmt(caClient(id));
   document.getElementById('cdPaiement').value='';
   const histo = VENTES.filter(v=>v.clientId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('cdHistorique').innerHTML = histo.length ? histo.map(v=>`
-    <div class="list-item">
+    <div class="list-item" onclick="openVenteDetail('${v.id}')" style="cursor:pointer;">
       <div><div class="name">${v.numero}</div><div class="meta">${dateFR(v.date)}</div></div>
       <div class="amount">${fmt(v.total)}</div>
     </div>`).join('') : '<div class="empty">Aucune vente</div>';
@@ -761,9 +1037,12 @@ async function encaisserPaiementClient(){
 function switchAchatsTab(tab){
   document.getElementById('achatsTabNouvel').classList.toggle('active', tab==='nouvel');
   document.getElementById('achatsTabFournisseurs').classList.toggle('active', tab==='fournisseurs');
+  document.getElementById('achatsTabStock').classList.toggle('active', tab==='stock');
   document.getElementById('achatsNouvel').style.display = tab==='nouvel' ? 'block':'none';
   document.getElementById('achatsFournisseurs').style.display = tab==='fournisseurs' ? 'block':'none';
+  document.getElementById('achatsStock').style.display = tab==='stock' ? 'block':'none';
   if(tab==='fournisseurs') renderFournisseurs();
+  if(tab==='stock') renderStock();
 }
 function remplirSelectFournisseurs(){
   document.getElementById('achatFournisseur').innerHTML = '<option value="">-- Choisir --</option>' +
@@ -772,11 +1051,13 @@ function remplirSelectFournisseurs(){
 function openFournisseurModal(id){
   document.getElementById('fournisseurId').value = id||'';
   document.getElementById('fournisseurModalTitle').textContent = id ? 'Modifier fournisseur' : 'Nouveau fournisseur';
+  document.getElementById('fSoldeInitialBox').style.display = id ? 'none' : 'block';
   if(id){
     const f = FOURNISSEURS.find(x=>x.id===id);
     document.getElementById('fNom').value=f.nom; document.getElementById('fTel').value=f.tel||'';
   } else {
     document.getElementById('fNom').value=''; document.getElementById('fTel').value='';
+    document.getElementById('fSoldeInitial').value='0';
   }
   openModal('modalFournisseur');
 }
@@ -787,18 +1068,25 @@ async function enregistrerFournisseur(){
   if(!nom){ toast('Indique le nom du fournisseur'); return; }
   let f;
   if(id){ f = FOURNISSEURS.find(x=>x.id===id); f.nom=nom; f.tel=tel; }
-  else { f = {id:uid(), nom, tel, solde:0}; FOURNISSEURS.push(f); }
+  else {
+    const soldeInitial = parseFloat(document.getElementById('fSoldeInitial').value)||0;
+    f = {id:uid(), nom, tel, solde:soldeInitial};
+    FOURNISSEURS.push(f);
+  }
   await put('fournisseurs', f);
   remplirSelectFournisseurs(); renderFournisseurs();
   closeModal('modalFournisseur');
   toast('Fournisseur enregistré');
+}
+function achatsRealisesFournisseur(id){
+  return ACHATS.filter(a=>a.fournisseurId===id).reduce((s,a)=>s+a.total,0);
 }
 function renderFournisseurs(){
   const card = document.getElementById('fournisseurListCard');
   if(FOURNISSEURS.length===0){ card.innerHTML='<div class="empty">Aucun fournisseur</div>'; return; }
   card.innerHTML = FOURNISSEURS.map(f=>`
     <div class="list-item" onclick="openFournisseurDetail('${f.id}')" style="cursor:pointer;">
-      <div><div class="name">${f.nom}</div><div class="meta">${f.tel||'—'}</div></div>
+      <div><div class="name">${f.nom}</div><div class="meta">${f.tel||'—'} · Achats: ${fmt(achatsRealisesFournisseur(f.id))}</div></div>
       <div>${(f.solde||0)>0 ? `<span class="pill credit">Dû ${fmt(f.solde)}</span>` : `<span class="pill ok">A jour</span>`}</div>
     </div>`).join('');
 }
@@ -809,10 +1097,11 @@ function openFournisseurDetail(id){
   document.getElementById('fdTel').textContent = f.tel||'';
   document.getElementById('fdSolde').textContent = fmt(f.solde||0);
   document.getElementById('fdSolde').className = 'amount ' + ((f.solde||0)>0?'neg':'pos');
+  document.getElementById('fdCA').textContent = fmt(achatsRealisesFournisseur(id));
   document.getElementById('fdPaiement').value='';
   const histo = ACHATS.filter(a=>a.fournisseurId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   document.getElementById('fdHistorique').innerHTML = histo.length ? histo.map(a=>`
-    <div class="list-item">
+    <div class="list-item" onclick="openAchatDetail('${a.id}')" style="cursor:pointer;">
       <div><div class="name">${a.numero}</div><div class="meta">${dateFR(a.date)}</div></div>
       <div class="amount">${fmt(a.total)}</div>
     </div>`).join('') : '<div class="empty">Aucun achat</div>';
@@ -909,7 +1198,7 @@ function renderHistorique(){
     const list = VENTES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
     card.innerHTML = list.length ? list.map(v=>{
       const c = CLIENTS.find(x=>x.id===v.clientId);
-      return `<div class="list-item">
+      return `<div class="list-item" onclick="openVenteDetail('${v.id}')" style="cursor:pointer;">
         <div><div class="name">${v.numero} ${c?'· '+c.nom:''}</div><div class="meta">${dateFR(v.date)}</div></div>
         <div class="amount">${fmt(v.total)}</div>
       </div>`;
@@ -918,7 +1207,7 @@ function renderHistorique(){
     const list = ACHATS.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
     card.innerHTML = list.length ? list.map(a=>{
       const f = FOURNISSEURS.find(x=>x.id===a.fournisseurId);
-      return `<div class="list-item">
+      return `<div class="list-item" onclick="openAchatDetail('${a.id}')" style="cursor:pointer;">
         <div><div class="name">${a.numero} ${f?'· '+f.nom:''}</div><div class="meta">${dateFR(a.date)}</div></div>
         <div class="amount">${fmt(a.total)}</div>
       </div>`;
@@ -977,6 +1266,7 @@ function renderBilan(){
   document.getElementById('statBenefice').textContent = fmt(benefice);
   document.getElementById('statNbVentes').textContent = ventesPeriode.length;
   document.getElementById('statCredits').textContent = fmt(totalCredits);
+  document.getElementById('statValeurStock').textContent = fmt(PRODUITS.reduce((s,p)=>s+(p.stock||0)*(p.prixAchat||0),0));
 
   document.getElementById('soldeCaisse').textContent = fmt(soldeCaisseActuel());
   document.getElementById('soldeCaisse').className = 'amount ' + (soldeCaisseActuel()>=0?'pos':'neg');
@@ -1000,8 +1290,8 @@ setInterval(tickClock, 1000*30);
 async function init(){
   try{
     await openDB();
-    [PRODUITS, CLIENTS, FOURNISSEURS, VENTES, ACHATS, CAISSE] = await Promise.all([
-      getAll('produits'), getAll('clients'), getAll('fournisseurs'), getAll('ventes'), getAll('achats'), getAll('caisse')
+    [PRODUITS, CLIENTS, FOURNISSEURS, VENTES, ACHATS, CAISSE, RETOURS_VENTE, RETOURS_ACHAT] = await Promise.all([
+      getAll('produits'), getAll('clients'), getAll('fournisseurs'), getAll('ventes'), getAll('achats'), getAll('caisse'), getAll('retoursVente'), getAll('retoursAchat')
     ]);
   }catch(e){
     toast("Stockage indisponible dans cet aperçu. Installe l'app pour un usage réel.");
@@ -1021,4 +1311,3 @@ init();
 </script>
 </body>
 </html>
-
