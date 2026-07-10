@@ -497,6 +497,32 @@
   </div>
 </div>
 
+<!-- MODAL: Detail/Modif mouvement caisse -->
+<div class="modal-bg" id="modalMouvementDetail">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalMouvementDetail')">×</button>
+    <h3>Modifier le mouvement</h3>
+    <div class="meta" id="mvdLienInfo" style="color:var(--red); display:none;"></div>
+    <label class="field" style="margin-top:8px;">Catégorie</label>
+    <select id="mvdCategorie">
+      <option value="investissement">💰 Investissement</option>
+      <option value="retour_investissement">↩️ Retour d'investissement</option>
+      <option value="fonds_roulement_ajout">🔄 Ajout fonds de roulement</option>
+      <option value="fonds_roulement_retrait">🔄 Retrait fonds de roulement</option>
+      <option value="autre_entree">➕ Autre entrée</option>
+      <option value="autre_sortie">➖ Autre dépense / sortie</option>
+    </select>
+    <label class="field">Montant</label>
+    <input type="number" id="mvdMontant" min="0" step="any" inputmode="decimal">
+    <label class="field">Motif</label>
+    <input type="text" id="mvdMotif">
+    <div class="grid2" style="margin-top:14px;">
+      <button class="btn amber" onclick="enregistrerModifMouvement()">Enregistrer</button>
+      <button class="btn red" onclick="supprimerMouvement()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -547,6 +573,13 @@ function put(store, obj){
   return new Promise((resolve,reject)=>{
     const r = txStore(store,'readwrite').put(obj);
     r.onsuccess = ()=>resolve(obj);
+    r.onerror = reject;
+  });
+}
+function del(store, id){
+  return new Promise((resolve,reject)=>{
+    const r = txStore(store,'readwrite').delete(id);
+    r.onsuccess = ()=>resolve(true);
     r.onerror = reject;
   });
 }
@@ -1313,6 +1346,46 @@ function totalFondsRoulementAjoute(){
 function totalFondsRoulementRetire(){
   return CAISSE.filter(m=>m.categorie==='fonds_roulement_retrait').reduce((s,m)=>s+m.montant,0);
 }
+function openMouvementDetail(id){
+  const m = CAISSE.find(x=>x.id===id);
+  if(!m) return;
+  window._currentMouvementId = id;
+  const info = document.getElementById('mvdLienInfo');
+  if(m.lien){
+    info.style.display='block';
+    info.textContent = "⚠️ Ce mouvement est lié à une opération (vente, achat, paiement...). Le modifier ou le supprimer ici n'annulera pas cette opération elle-même.";
+  } else {
+    info.style.display='none';
+  }
+  document.getElementById('mvdCategorie').value = m.categorie || (m.type==='entree' ? 'autre_entree' : 'autre_sortie');
+  document.getElementById('mvdMontant').value = m.montant;
+  document.getElementById('mvdMotif').value = m.motif;
+  openModal('modalMouvementDetail');
+}
+async function enregistrerModifMouvement(){
+  const m = CAISSE.find(x=>x.id===window._currentMouvementId);
+  if(!m) return;
+  const montant = parseFloat(document.getElementById('mvdMontant').value);
+  if(!montant || montant<=0){ toast('Montant invalide'); return; }
+  const categorie = document.getElementById('mvdCategorie').value;
+  m.categorie = categorie;
+  m.type = MVT_LABELS[categorie].type;
+  m.montant = montant;
+  m.motif = document.getElementById('mvdMotif').value.trim() || MVT_LABELS[categorie].motifDefaut;
+  await put('caisse', m);
+  closeModal('modalMouvementDetail');
+  renderBilan();
+  toast('Mouvement modifié');
+}
+async function supprimerMouvement(){
+  const id = window._currentMouvementId;
+  if(!id) return;
+  await del('caisse', id);
+  CAISSE = CAISSE.filter(x=>x.id!==id);
+  closeModal('modalMouvementDetail');
+  renderBilan();
+  toast('Mouvement supprimé');
+}
 function soldeCaisseActuel(){
   return CAISSE.reduce((s,m)=> s + (m.type==='entree'? m.montant : -m.montant), 0);
 }
@@ -1356,7 +1429,7 @@ function renderBilan(){
       : m.categorie==='retour_investissement' ? '<span class="pill credit" style="margin-right:6px;">Retour invest.</span>'
       : m.categorie==='fonds_roulement_ajout' ? '<span class="pill ok" style="margin-right:6px;">Fonds roulement</span>'
       : m.categorie==='fonds_roulement_retrait' ? '<span class="pill credit" style="margin-right:6px;">Fonds roulement</span>' : '';
-    return `<div class="list-item">
+    return `<div class="list-item" onclick="openMouvementDetail('${m.id}')" style="cursor:pointer;">
       <div><div class="name">${badge}${m.motif}</div><div class="meta">${dateFR(m.date)}</div></div>
       <div class="amount ${m.type==='entree'?'pos':'neg'}">${m.type==='entree'?'+':'-'}${fmt(m.montant)}</div>
     </div>`;
