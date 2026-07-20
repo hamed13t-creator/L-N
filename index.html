@@ -268,13 +268,23 @@
   </section>
 
   <!-- BILAN / DASHBOARD + CAISSE -->
-  <section class="view" id="view-bilan">
-    <h2 class="title">Tableau de bord</h2>
-    <div class="segmented">
-      <button id="periodeJour" class="active" onclick="setPeriode('jour')">Jour</button>
-      <button id="periodeSemaine" onclick="setPeriode('semaine')">Semaine</button>
-      <button id="periodeMois" onclick="setPeriode('mois')">Mois</button>
-    </div>
+<div class="segmented">
+  <button id="periodeJour" class="active" onclick="setPeriode('jour')">Jour</button>
+  <button id="periodeSemaine" onclick="setPeriode('semaine')">Semaine</button>
+  <button id="periodeMois" onclick="setPeriode('mois')">Mois</button>
+  <button id="periodeAnnee" onclick="setPeriode('annee')">Année</button>
+  <button id="periodePerso" onclick="setPeriode('perso')">Perso</button>
+</div>
+<div class="card grid2" id="persoDatesCard" style="display:none;">
+  <div>
+    <label class="field" style="margin-top:0;">Du</label>
+    <input type="date" id="persoDateDebut" onchange="renderBilan()">
+  </div>
+  <div>
+    <label class="field" style="margin-top:0;">Au</label>
+    <input type="date" id="persoDateFin" onchange="renderBilan()">
+  </div>
+</div>
     <div class="stat-grid">
       <div class="stat"><div class="v" id="statVentes">0</div><div class="l">Total ventes</div></div>
       <div class="stat amber"><div class="v" id="statBenefice">0</div><div class="l">Bénéfice estimé</div></div>
@@ -1393,9 +1403,10 @@ function soldeCaisseActuel(){
 /* ===================== BILAN / DASHBOARD ===================== */
 function setPeriode(p){
   periodeActuelle = p;
-  ['Jour','Semaine','Mois'].forEach(x=>{
+  ['Jour','Semaine','Mois','Annee','Perso'].forEach(x=>{
     document.getElementById('periode'+x).classList.toggle('active', x.toLowerCase()===p);
   });
+  document.getElementById('persoDatesCard').style.display = p==='perso' ? 'grid' : 'none';
   renderBilan();
 }
 function debutPeriode(p){
@@ -1403,10 +1414,23 @@ function debutPeriode(p){
   if(p==='jour'){ d.setHours(0,0,0,0); return d; }
   if(p==='semaine'){ const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); d.setHours(0,0,0,0); return d; }
   if(p==='mois'){ d.setDate(1); d.setHours(0,0,0,0); return d; }
+  if(p==='annee'){ d.setMonth(0,1); d.setHours(0,0,0,0); return d; }
+  if(p==='perso'){
+    const v = document.getElementById('persoDateDebut').value;
+    return v ? new Date(v+'T00:00:00') : new Date(0);
+  }
+}
+function finPeriode(p){
+  if(p==='perso'){
+    const v = document.getElementById('persoDateFin').value;
+    return v ? new Date(v+'T23:59:59') : new Date();
+  }
+  return new Date();
 }
 function renderBilan(){
-  const debut = debutPeriode(periodeActuelle);
-  const ventesPeriode = VENTES.filter(v=> new Date(v.date) >= debut);
+const debut = debutPeriode(periodeActuelle);
+const fin = finPeriode(periodeActuelle);
+const ventesPeriode = VENTES.filter(v=> { const d=new Date(v.date); return d >= debut && d <= fin; });
   const totalVentes = ventesPeriode.reduce((s,v)=>s+v.total,0);
   const benefice = ventesPeriode.reduce((s,v)=> s + v.items.reduce((ss,l)=> ss + (l.prixVente - (l.prixAchat||0))*l.qte, 0), 0);
   const totalCredits = CLIENTS.reduce((s,c)=>s+(c.solde||0),0);
