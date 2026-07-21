@@ -108,8 +108,8 @@
   .stat .l{font-size:10.5px; opacity:.8; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;}
   .stat.amber{background:var(--amber); color:#2A1D00;}
   .empty{text-align:center; color:var(--muted); padding:30px 10px; font-size:13px;}
-  .segmented{display:flex; background:#EFEBE2; border-radius:10px; padding:3px; margin-bottom:10px;}
-  .segmented button{flex:1; background:none; border:none; padding:8px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--muted); font-family:inherit;}
+  .segmented{display:flex; background:#EFEBE2; border-radius:10px; padding:3px; margin-bottom:10px; flex-wrap:wrap;}
+  .segmented button{flex:1; background:none; border:none; padding:8px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--muted); font-family:inherit; min-width:60px;}
   .segmented button.active{background:var(--navy); color:#fff;}
   .receipt{font-family:'Courier New',monospace; font-size:12.5px; background:#fff; border:1px dashed #999; padding:14px; white-space:pre-wrap; line-height:1.45;}
   .toast{
@@ -268,23 +268,25 @@
   </section>
 
   <!-- BILAN / DASHBOARD + CAISSE -->
-<div class="segmented">
-  <button id="periodeJour" class="active" onclick="setPeriode('jour')">Jour</button>
-  <button id="periodeSemaine" onclick="setPeriode('semaine')">Semaine</button>
-  <button id="periodeMois" onclick="setPeriode('mois')">Mois</button>
-  <button id="periodeAnnee" onclick="setPeriode('annee')">Année</button>
-  <button id="periodePerso" onclick="setPeriode('perso')">Perso</button>
-</div>
-<div class="card grid2" id="persoDatesCard" style="display:none;">
-  <div>
-    <label class="field" style="margin-top:0;">Du</label>
-    <input type="date" id="persoDateDebut" onchange="renderBilan()">
-  </div>
-  <div>
-    <label class="field" style="margin-top:0;">Au</label>
-    <input type="date" id="persoDateFin" onchange="renderBilan()">
-  </div>
-</div>
+  <section class="view" id="view-bilan">
+    <h2 class="title">Tableau de bord</h2>
+    <div class="segmented">
+      <button id="periodeJour" class="active" onclick="setPeriode('jour')">Jour</button>
+      <button id="periodeSemaine" onclick="setPeriode('semaine')">Semaine</button>
+      <button id="periodeMois" onclick="setPeriode('mois')">Mois</button>
+      <button id="periodeAnnee" onclick="setPeriode('annee')">Année</button>
+      <button id="periodePerso" onclick="setPeriode('perso')">Perso</button>
+    </div>
+    <div class="card grid2" id="persoDatesCard" style="display:none;">
+      <div>
+        <label class="field" style="margin-top:0;">Du</label>
+        <input type="date" id="persoDateDebut" onchange="renderBilan()">
+      </div>
+      <div>
+        <label class="field" style="margin-top:0;">Au</label>
+        <input type="date" id="persoDateFin" onchange="renderBilan()">
+      </div>
+    </div>
     <div class="stat-grid">
       <div class="stat"><div class="v" id="statVentes">0</div><div class="l">Total ventes</div></div>
       <div class="stat amber"><div class="v" id="statBenefice">0</div><div class="l">Bénéfice estimé</div></div>
@@ -1419,6 +1421,7 @@ function debutPeriode(p){
     const v = document.getElementById('persoDateDebut').value;
     return v ? new Date(v+'T00:00:00') : new Date(0);
   }
+  return new Date(0);
 }
 function finPeriode(p){
   if(p==='perso'){
@@ -1428,9 +1431,9 @@ function finPeriode(p){
   return new Date();
 }
 function renderBilan(){
-const debut = debutPeriode(periodeActuelle);
-const fin = finPeriode(periodeActuelle);
-const ventesPeriode = VENTES.filter(v=> { const d=new Date(v.date); return d >= debut && d <= fin; });
+  const debut = debutPeriode(periodeActuelle);
+  const fin = finPeriode(periodeActuelle);
+  const ventesPeriode = VENTES.filter(v=> { const d=new Date(v.date); return d >= debut && d <= fin; });
   const totalVentes = ventesPeriode.reduce((s,v)=>s+v.total,0);
   const benefice = ventesPeriode.reduce((s,v)=> s + v.items.reduce((ss,l)=> ss + (l.prixVente - (l.prixAchat||0))*l.qte, 0), 0);
   const totalCredits = CLIENTS.reduce((s,c)=>s+(c.solde||0),0);
@@ -1492,4 +1495,3 @@ init();
 </script>
 </body>
 </html>
-
