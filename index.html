@@ -83,6 +83,7 @@
   .pill{display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:700;}
   .pill.credit{background:#FBE4DE; color:var(--red);}
   .pill.ok{background:#DDF0E4; color:var(--green);}
+  .pill.warn{background:#FDECC8; color:#8A5A00;}
   .fab{
     position:fixed; right:16px; bottom:78px; background:var(--amber); color:#2A1D00;
     width:52px; height:52px; border-radius:50%; border:none; font-size:26px; font-weight:800;
@@ -108,8 +109,8 @@
   .stat .l{font-size:10.5px; opacity:.8; text-transform:uppercase; letter-spacing:.3px; margin-top:2px;}
   .stat.amber{background:var(--amber); color:#2A1D00;}
   .empty{text-align:center; color:var(--muted); padding:30px 10px; font-size:13px;}
-  .segmented{display:flex; background:#EFEBE2; border-radius:10px; padding:3px; margin-bottom:10px; flex-wrap:wrap;}
-  .segmented button{flex:1; background:none; border:none; padding:8px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--muted); font-family:inherit; min-width:60px;}
+  .segmented{display:flex; background:#EFEBE2; border-radius:10px; padding:3px; margin-bottom:10px;}
+  .segmented button{flex:1; background:none; border:none; padding:8px; border-radius:8px; font-size:12.5px; font-weight:700; color:var(--muted); font-family:inherit;}
   .segmented button.active{background:var(--navy); color:#fff;}
   .receipt{font-family:'Courier New',monospace; font-size:12.5px; background:#fff; border:1px dashed #999; padding:14px; white-space:pre-wrap; line-height:1.45;}
   .toast{
@@ -120,6 +121,24 @@
   .toast.show{opacity:1;}
   .search-box{margin-bottom:10px;}
   a.linklike{color:var(--navy); font-weight:700; font-size:12.5px; text-decoration:underline;}
+  .qbtn{width:40px; height:40px; border-radius:10px; border:1.5px solid var(--line); background:#fff; font-size:19px; font-weight:800; color:var(--navy);}
+  .qbtn:active{background:#EFEBE2;}
+
+  /* ===== Responsive desktop / tablette ===== */
+  @media (min-width: 900px){
+    body{ flex-direction:row; }
+    nav.tabs{
+      position:sticky; top:0; left:0; bottom:auto; flex-direction:column; width:96px; height:100vh;
+      box-shadow:2px 0 10px rgba(0,0,0,.15); padding-bottom:0; justify-content:flex-start; padding-top:16px; gap:4px;
+    }
+    nav.tabs button{ flex:none; padding:12px 2px; }
+    main{ max-width:900px; margin:0 auto; width:100%; padding:20px 24px 40px; }
+    header{ position:sticky; }
+    .fab{ right:32px; bottom:32px; }
+    .stat-grid{ grid-template-columns:1fr 1fr 1fr; }
+    .modal-bg{ align-items:center; }
+    .modal{ border-radius:18px; max-width:480px; max-height:85vh; }
+  }
 </style>
 </head>
 <body>
@@ -139,9 +158,9 @@
     <h2 class="title">Nouvelle vente</h2>
 
     <div class="card">
-      <label class="field">Client (obligatoire)</label>
+      <label class="field">Client (optionnel en comptant, obligatoire à crédit)</label>
       <div class="row" style="gap:8px;">
-        <select id="venteClient" style="flex:1;"><option value="">-- Sélectionner un client --</option></select>
+        <select id="venteClient" style="flex:1;"><option value="">-- Client de passage (comptant) --</option></select>
         <button class="btn outline sm" onclick="ouvrirNouveauClientDepuisVente()">+ Nouveau</button>
       </div>
     </div>
@@ -152,10 +171,15 @@
         <button class="btn outline sm" onclick="openProduitModal()">+ Nouveau produit</button>
       </div>
       <select id="venteProduitSelect"></select>
+      <div class="meta" id="venteStockInfo" style="margin-top:6px;"></div>
       <div class="grid2" style="margin-top:8px;">
         <div>
           <label class="field">Quantité</label>
-          <input type="number" id="venteQte" value="1" min="0.01" step="any" inputmode="decimal">
+          <div class="row" style="gap:6px;">
+            <button type="button" class="qbtn" onclick="ajusterQte(-1)">−</button>
+            <input type="number" id="venteQte" value="1" min="0.01" step="any" inputmode="decimal" style="text-align:center;">
+            <button type="button" class="qbtn" onclick="ajusterQte(1)">+</button>
+          </div>
         </div>
         <div>
           <label class="field">Prix unitaire</label>
@@ -184,7 +208,7 @@
         <label class="field">Montant payé maintenant</label>
         <input type="number" id="venteMontantPaye" min="0" step="any" inputmode="decimal">
       </div>
-      <button class="btn block" style="margin-top:12px; background:var(--green);" onclick="validerVente()">Encaisser la vente</button>
+      <button class="btn block" id="btnValiderVente" style="margin-top:12px; background:var(--green);" onclick="validerVente()">Encaisser la vente</button>
     </div>
   </section>
 
@@ -235,7 +259,7 @@
       <div class="card" id="achatPaiementCard" style="display:none;">
         <label class="field" style="margin-top:0;">Montant payé maintenant</label>
         <input type="number" id="achatMontantPaye" min="0" step="any" inputmode="decimal" value="0">
-        <button class="btn block" style="margin-top:12px; background:var(--green);" onclick="validerAchat()">Valider l'achat</button>
+        <button class="btn block" id="btnValiderAchat" style="margin-top:12px; background:var(--green);" onclick="validerAchat()">Valider l'achat</button>
       </div>
     </div>
 
@@ -274,18 +298,6 @@
       <button id="periodeJour" class="active" onclick="setPeriode('jour')">Jour</button>
       <button id="periodeSemaine" onclick="setPeriode('semaine')">Semaine</button>
       <button id="periodeMois" onclick="setPeriode('mois')">Mois</button>
-      <button id="periodeAnnee" onclick="setPeriode('annee')">Année</button>
-      <button id="periodePerso" onclick="setPeriode('perso')">Perso</button>
-    </div>
-    <div class="card grid2" id="persoDatesCard" style="display:none;">
-      <div>
-        <label class="field" style="margin-top:0;">Du</label>
-        <input type="date" id="persoDateDebut" onchange="renderBilan()">
-      </div>
-      <div>
-        <label class="field" style="margin-top:0;">Au</label>
-        <input type="date" id="persoDateFin" onchange="renderBilan()">
-      </div>
     </div>
     <div class="stat-grid">
       <div class="stat"><div class="v" id="statVentes">0</div><div class="l">Total ventes</div></div>
@@ -309,6 +321,16 @@
       <div class="stat"><div class="v" id="statFondsRoulement">0</div><div class="l">Fonds de roulement net</div></div>
     </div>
     <div class="card" id="caisseListCard"></div>
+
+    <h2 class="title" style="margin-top:16px;">Sauvegarde</h2>
+    <div class="card">
+      <div class="meta" style="margin-bottom:10px;">Exporte régulièrement tes données pour éviter toute perte (changement de téléphone, désinstallation...).</div>
+      <div class="grid2">
+        <button class="btn outline" onclick="exporterDonnees()">⬇️ Exporter (JSON)</button>
+        <button class="btn outline" onclick="document.getElementById('importFile').click()">⬆️ Importer</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none;" onchange="importerDonnees(event)">
+    </div>
   </section>
 
 </main>
@@ -352,7 +374,9 @@
     </div>
     <label class="field">Stock initial</label>
     <input type="number" id="pStock" value="0" min="0" step="any" inputmode="decimal">
-    <button class="btn amber block" style="margin-top:14px;" onclick="enregistrerProduit()">Enregistrer</button>
+    <label class="field">Seuil d'alerte stock bas</label>
+    <input type="number" id="pSeuilAlerte" value="5" min="0" step="any" inputmode="decimal">
+    <button class="btn amber block" id="btnEnregistrerProduit" style="margin-top:14px;" onclick="enregistrerProduit()">Enregistrer</button>
   </div>
 </div>
 
@@ -370,7 +394,7 @@
     <input type="number" id="cSolde" value="0" min="0" step="any" inputmode="decimal">
     <label class="field">Chiffre d'affaires initial (ventes réalisées avant l'app)</label>
     <input type="number" id="cCaInitial" value="0" min="0" step="any" inputmode="decimal">
-    <button class="btn amber block" style="margin-top:14px;" onclick="enregistrerClient()">Enregistrer</button>
+    <button class="btn amber block" onclick="enregistrerClient()">Enregistrer</button>
   </div>
 </div>
 
@@ -388,7 +412,7 @@
     <input type="number" id="fSolde" value="0" min="0" step="any" inputmode="decimal">
     <label class="field">Chiffre d'affaires initial (achats réalisés avant l'app)</label>
     <input type="number" id="fCaInitial" value="0" min="0" step="any" inputmode="decimal">
-    <button class="btn amber block" style="margin-top:14px;" onclick="enregistrerFournisseur()">Enregistrer</button>
+    <button class="btn amber block" onclick="enregistrerFournisseur()">Enregistrer</button>
   </div>
 </div>
 
@@ -561,7 +585,10 @@ function openDB(){
       db = e.target.result;
       // Si une future mise à jour est nécessaire pendant que cette page est ouverte,
       // on ferme proprement cette connexion pour ne jamais bloquer l'ouverture ailleurs.
-      db.onversionchange = () => { db.close(); };
+      db.onversionchange = () => {
+        db.close();
+        toast("Mise à jour disponible — recharge l'application");
+      };
       resolve(db);
     };
     req.onerror = (e) => reject(e);
@@ -618,6 +645,13 @@ function dateFR(iso){
   const d = new Date(iso);
   return d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 }
+// Empêche les doubles soumissions (double-tap) sur les actions asynchrones critiques
+async function withLock(btn, fn){
+  if(!btn || btn.disabled) return;
+  btn.disabled = true;
+  try{ await fn(); }
+  finally{ btn.disabled = false; }
+}
 
 /* ===================== NAVIGATION ===================== */
 function switchView(name){
@@ -662,29 +696,34 @@ function openProduitModal(id){
     document.getElementById('pPrixAchat').value = p.prixAchat;
     document.getElementById('pPrixVente').value = p.prixVente;
     document.getElementById('pStock').value = p.stock;
+    document.getElementById('pSeuilAlerte').value = (p.seuilAlerte!=null) ? p.seuilAlerte : 5;
   } else {
     document.getElementById('pNom').value='';
     document.getElementById('pPrixAchat').value='';
     document.getElementById('pPrixVente').value='';
     document.getElementById('pStock').value='0';
+    document.getElementById('pSeuilAlerte').value='5';
   }
   openModal('modalProduit');
 }
 async function enregistrerProduit(){
-  const id = document.getElementById('pId').value;
-  const nom = document.getElementById('pNom').value.trim();
-  const prixAchat = parseFloat(document.getElementById('pPrixAchat').value)||0;
-  const prixVente = parseFloat(document.getElementById('pPrixVente').value)||0;
-  const stock = parseFloat(document.getElementById('pStock').value)||0;
-  if(!nom){ toast('Indique le nom du produit'); return; }
-  let p;
-  if(id){ p = PRODUITS.find(x=>x.id===id); p.nom=nom; p.prixAchat=prixAchat; p.prixVente=prixVente; p.stock=stock; }
-  else { p = {id:uid(), nom, prixAchat, prixVente, stock}; PRODUITS.push(p); }
-  await put('produits', p);
-  remplirSelectProduits();
-  renderStock();
-  closeModal('modalProduit');
-  toast('Produit enregistré');
+  await withLock(document.getElementById('btnEnregistrerProduit'), async ()=>{
+    const id = document.getElementById('pId').value;
+    const nom = document.getElementById('pNom').value.trim();
+    const prixAchat = parseFloat(document.getElementById('pPrixAchat').value)||0;
+    const prixVente = parseFloat(document.getElementById('pPrixVente').value)||0;
+    const stock = parseFloat(document.getElementById('pStock').value)||0;
+    const seuilAlerte = parseFloat(document.getElementById('pSeuilAlerte').value)||0;
+    if(!nom){ toast('Indique le nom du produit'); return; }
+    let p;
+    if(id){ p = PRODUITS.find(x=>x.id===id); p.nom=nom; p.prixAchat=prixAchat; p.prixVente=prixVente; p.stock=stock; p.seuilAlerte=seuilAlerte; }
+    else { p = {id:uid(), nom, prixAchat, prixVente, stock, seuilAlerte}; PRODUITS.push(p); }
+    await put('produits', p);
+    remplirSelectProduits();
+    renderStock();
+    closeModal('modalProduit');
+    toast('Produit enregistré');
+  });
 }
 function renderStock(){
   const listCard = document.getElementById('stockListCard');
@@ -693,14 +732,18 @@ function renderStock(){
   const list = PRODUITS.filter(p=>p.nom.toLowerCase().includes(q)).sort((a,b)=>a.nom.localeCompare(b.nom));
   document.getElementById('stockValeurTotale').textContent = fmt(PRODUITS.reduce((s,p)=>s+(p.stock||0)*(p.prixAchat||0),0));
   if(list.length===0){ listCard.innerHTML = '<div class="empty">Aucun produit</div>'; return; }
-  listCard.innerHTML = list.map(p=>`
+  listCard.innerHTML = list.map(p=>{
+    const seuil = p.seuilAlerte!=null ? p.seuilAlerte : 5;
+    const stockBas = (p.stock||0) <= seuil;
+    return `
     <div class="list-item" onclick="openProduitModal('${p.id}')" style="cursor:pointer;">
       <div>
-        <div class="name">${p.nom}</div>
+        <div class="name">${p.nom} ${stockBas?'<span class="pill warn">Stock bas</span>':''}</div>
         <div class="meta">Achat ${fmt(p.prixAchat)} · Vente ${fmt(p.prixVente)} · Valeur ${fmt((p.stock||0)*(p.prixAchat||0))}</div>
       </div>
       <div class="amount">${fmt(p.stock)}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function remplirSelectProduits(){
   const opts = '<option value="">-- Choisir un produit --</option>' + PRODUITS.map(p=>
@@ -711,15 +754,29 @@ function remplirSelectProduits(){
 document.getElementById('venteProduitSelect').addEventListener('change', function(){
   const p = PRODUITS.find(x=>x.id===this.value);
   document.getElementById('ventePU').value = p ? p.prixVente : '';
+  const info = document.getElementById('venteStockInfo');
+  if(p){
+    const seuil = p.seuilAlerte!=null ? p.seuilAlerte : 5;
+    info.textContent = 'Stock disponible : '+fmt(p.stock);
+    info.style.color = (p.stock||0) <= seuil ? 'var(--red)' : 'var(--muted)';
+  } else {
+    info.textContent = '';
+  }
 });
 document.getElementById('achatProduitSelect').addEventListener('change', function(){
   const p = PRODUITS.find(x=>x.id===this.value);
   document.getElementById('achatPU').value = p ? p.prixAchat : '';
 });
+function ajusterQte(delta){
+  const input = document.getElementById('venteQte');
+  let v = parseFloat(input.value)||0;
+  v = Math.max(0.01, v + delta);
+  input.value = v;
+}
 
 /* ===================== VENTE ===================== */
 function remplirSelectClients(){
-  document.getElementById('venteClient').innerHTML = '<option value="">-- Sélectionner un client --</option>' +
+  document.getElementById('venteClient').innerHTML = '<option value="">-- Client de passage (comptant) --</option>' +
     CLIENTS.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
 }
 function ajouterLigneVente(){
@@ -730,10 +787,17 @@ function ajouterLigneVente(){
   if(!produit){ toast('Choisis un produit'); return; }
   if(!qte || qte<=0){ toast('Quantité invalide'); return; }
   if(isNaN(pu) || pu<0){ toast('Prix invalide'); return; }
+  // Contrôle du stock disponible (en tenant compte de ce qui est déjà dans le panier)
+  const dejaDansPanier = panierVente.filter(l=>l.produitId===produit.id).reduce((s,l)=>s+l.qte,0);
+  if(qte + dejaDansPanier > (produit.stock||0)){
+    toast('Stock insuffisant (dispo: '+fmt((produit.stock||0)-dejaDansPanier)+')');
+    return;
+  }
   panierVente.push({produitId:produit.id, nom:produit.nom, qte, prixVente:pu, prixAchat:produit.prixAchat});
   document.getElementById('venteQte').value='1';
   document.getElementById('ventePU').value='';
   document.getElementById('venteProduitSelect').value='';
+  document.getElementById('venteStockInfo').textContent='';
   renderPanierVente();
 }
 function renderPanierVente(){
@@ -765,53 +829,56 @@ function setModePaiement(mode){
   document.getElementById('modeCredit').classList.toggle('active', mode==='credit');
   const total = panierVente.reduce((s,l)=>s+l.qte*l.prixVente,0);
   document.getElementById('venteMontantPaye').value = mode==='comptant' ? total : 0;
-  document.getElementById('montantPayeBox').style.display = mode==='credit' ? 'block' : 'block';
+  document.getElementById('montantPayeBox').style.display = 'block';
 }
 async function validerVente(){
-  if(panierVente.length===0){ toast('Le panier est vide'); return; }
-  const clientId = document.getElementById('venteClient').value || null;
-  if(!clientId){
-    toast('Sélectionne ou crée un client avant d\'encaisser'); return;
-  }
-  const total = panierVente.reduce((s,l)=>s+l.qte*l.prixVente,0);
-  let montantPaye = parseFloat(document.getElementById('venteMontantPaye').value);
-  if(isNaN(montantPaye)) montantPaye = 0;
-  montantPaye = Math.min(montantPaye, total);
+  await withLock(document.getElementById('btnValiderVente'), async ()=>{
+    if(panierVente.length===0){ toast('Le panier est vide'); return; }
+    const clientId = document.getElementById('venteClient').value || null;
+    // Client obligatoire uniquement en mode crédit (un client de passage payant comptant n'a pas besoin de fiche)
+    if(modePaiementVente==='credit' && !clientId){
+      toast('Sélectionne ou crée un client pour une vente à crédit'); return;
+    }
+    const total = panierVente.reduce((s,l)=>s+l.qte*l.prixVente,0);
+    let montantPaye = parseFloat(document.getElementById('venteMontantPaye').value);
+    if(isNaN(montantPaye)) montantPaye = 0;
+    montantPaye = Math.min(montantPaye, total);
 
-  const vente = {
-    id: uid(), date: nowISO(), clientId,
-    items: panierVente.slice(), total, montantPaye,
-    mode: modePaiementVente, numero: 'V-'+Date.now().toString().slice(-8)
-  };
-  await put('ventes', vente);
-  VENTES.push(vente);
+    const vente = {
+      id: uid(), date: nowISO(), clientId,
+      items: panierVente.slice(), total, montantPaye,
+      mode: modePaiementVente, numero: 'V-'+Date.now().toString().slice(-8)
+    };
+    await put('ventes', vente);
+    VENTES.push(vente);
 
-  // Stock
-  for(const l of panierVente){
-    const p = PRODUITS.find(x=>x.id===l.produitId);
-    if(p){ p.stock = (p.stock||0) - l.qte; await put('produits', p); }
-  }
-  remplirSelectProduits();
+    // Stock
+    for(const l of panierVente){
+      const p = PRODUITS.find(x=>x.id===l.produitId);
+      if(p){ p.stock = (p.stock||0) - l.qte; await put('produits', p); }
+    }
+    remplirSelectProduits();
 
-  // Solde client (le reste dû s'ajoute au solde du client)
-  const reste = total - montantPaye;
-  if(clientId && reste>0){
-    const c = CLIENTS.find(x=>x.id===clientId);
-    if(c){ c.solde = (c.solde||0) + reste; await put('clients', c); }
-  }
+    // Solde client (le reste dû s'ajoute au solde du client)
+    const reste = total - montantPaye;
+    if(clientId && reste>0){
+      const c = CLIENTS.find(x=>x.id===clientId);
+      if(c){ c.solde = (c.solde||0) + reste; await put('clients', c); }
+    }
 
-  // Caisse : l'argent encaissé entre en caisse
-  if(montantPaye>0){
-    const mvt = {id:uid(), date:nowISO(), type:'entree', montant:montantPaye, motif:'Vente '+vente.numero, lien:{type:'vente', id:vente.id}};
-    await put('caisse', mvt); CAISSE.push(mvt);
-  }
+    // Caisse : l'argent encaissé entre en caisse
+    if(montantPaye>0){
+      const mvt = {id:uid(), date:nowISO(), type:'entree', montant:montantPaye, motif:'Vente '+vente.numero, lien:{type:'vente', id:vente.id}};
+      await put('caisse', mvt); CAISSE.push(mvt);
+    }
 
-  afficherRecuVente(vente);
-  panierVente = []; renderPanierVente();
-  document.getElementById('venteClient').value='';
-  document.getElementById('venteMontantPaye').value='';
-  setModePaiement('comptant');
-  toast('Vente enregistrée');
+    afficherRecuVente(vente);
+    panierVente = []; renderPanierVente();
+    document.getElementById('venteClient').value='';
+    document.getElementById('venteMontantPaye').value='';
+    setModePaiement('comptant');
+    toast('Vente enregistrée');
+  });
 }
 function afficherRecuVente(vente){
   const client = CLIENTS.find(c=>c.id===vente.clientId);
@@ -983,21 +1050,66 @@ async function validerRetourAchat(){
   toast('Retour marchandise enregistré : '+fmt(montantRetour));
 }
 
-/* ===================== IMPRESSION BLUETOOTH (RawBT) ===================== */
-function imprimerRawBT(){
+/* ===================== IMPRESSION TICKET (ESC/POS Bluetooth + fallback RawBT) ===================== */
+function texteVersESCPOS(texte){
+  // Encode le texte en commandes ESC/POS basiques : init, texte, saut de lignes, coupe papier
+  const encoder = new TextEncoder();
+  const init = new Uint8Array([0x1B, 0x40]);            // ESC @ (reset imprimante)
+  const body = encoder.encode(texte + '\n\n\n');
+  const cut  = new Uint8Array([0x1D, 0x56, 0x42, 0x00]); // GS V B 0 (coupe papier, si supportée)
+  const out = new Uint8Array(init.length + body.length + cut.length);
+  out.set(init, 0); out.set(body, init.length); out.set(cut, init.length+body.length);
+  return out;
+}
+async function imprimerESCPOSBluetooth(texte){
+  if(!('bluetooth' in navigator)){
+    throw new Error('Web Bluetooth non supporté sur ce navigateur');
+  }
+  // Filtre générique : la plupart des imprimantes thermiques exposent le
+  // service SPP-like 0000ffe0 ou le profil "Serial Port". On laisse le
+  // choix à l'utilisateur via le picker natif.
+  const device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ffe0-0000-1000-8000-00805f9b34fb']
+  });
+  const server = await device.gatt.connect();
+  const services = await server.getPrimaryServices();
+  for(const service of services){
+    const chars = await service.getCharacteristics();
+    for(const ch of chars){
+      if(ch.properties.write || ch.properties.writeWithoutResponse){
+        const data = texteVersESCPOS(texte);
+        // Découpe en paquets de 180 octets (limite BLE fréquente)
+        for(let i=0;i<data.length;i+=180){
+          await ch.writeValueWithoutResponse(data.slice(i,i+180));
+        }
+        return true;
+      }
+    }
+  }
+  throw new Error('Aucune caractéristique BLE inscriptible trouvée');
+}
+async function imprimerRawBT(){
   const texte = window._dernierRecu || document.getElementById('recuTexte').textContent;
   if(!texte){ toast('Rien à imprimer'); return; }
-  // Envoie le texte à l'application RawBT installée sur le téléphone via une
-  // intention Android (SEND). RawBT doit être installée et l'imprimante
-  // thermique déjà appairée en Bluetooth dans les réglages Android.
-  const intentUrl = 'intent:#Intent;action=android.intent.action.SEND;' +
-    'type=text/plain;package=ru.a402d.rawbtprinter;' +
-    'S.android.intent.extra.TEXT=' + encodeURIComponent(texte) + ';end';
+  // 1) Tentative d'impression directe via Web Bluetooth (ESC/POS)
   try{
-    window.location.href = intentUrl;
-    setTimeout(()=>{ toast("Si rien ne s'ouvre, installe l'app RawBT depuis le Play Store"); }, 1200);
+    toast('Recherche imprimante Bluetooth...');
+    await imprimerESCPOSBluetooth(texte);
+    toast('Ticket envoyé à l\'imprimante');
+    return;
   }catch(e){
-    toast('Impossible de lancer RawBT: '+e.message);
+    // 2) Fallback : intent Android vers l'app RawBT (nécessite RawBT installée
+    //    et l'imprimante déjà appairée dans les réglages Bluetooth du téléphone)
+    const intentUrl = 'intent:#Intent;action=android.intent.action.SEND;' +
+      'type=text/plain;package=ru.a402d.rawbtprinter;' +
+      'S.android.intent.extra.TEXT=' + encodeURIComponent(texte) + ';end';
+    try{
+      window.location.href = intentUrl;
+      setTimeout(()=>{ toast("Web Bluetooth indisponible. Si rien ne s'ouvre, installe l'app RawBT"); }, 1200);
+    }catch(e2){
+      toast('Impression impossible : '+e2.message);
+    }
   }
 }
 async function partagerRecu(){
@@ -1253,34 +1365,36 @@ function renderPanierAchat(){
 }
 function retirerLigneAchat(i){ panierAchat.splice(i,1); renderPanierAchat(); }
 async function validerAchat(){
-  if(panierAchat.length===0){ toast("Le bon d'achat est vide"); return; }
-  const fournisseurId = document.getElementById('achatFournisseur').value || null;
-  const total = panierAchat.reduce((s,l)=>s+l.qte*l.prixAchat,0);
-  let montantPaye = parseFloat(document.getElementById('achatMontantPaye').value);
-  if(isNaN(montantPaye)) montantPaye=0;
-  montantPaye = Math.min(montantPaye, total);
+  await withLock(document.getElementById('btnValiderAchat'), async ()=>{
+    if(panierAchat.length===0){ toast("Le bon d'achat est vide"); return; }
+    const fournisseurId = document.getElementById('achatFournisseur').value || null;
+    const total = panierAchat.reduce((s,l)=>s+l.qte*l.prixAchat,0);
+    let montantPaye = parseFloat(document.getElementById('achatMontantPaye').value);
+    if(isNaN(montantPaye)) montantPaye=0;
+    montantPaye = Math.min(montantPaye, total);
 
-  const achat = {id:uid(), date:nowISO(), fournisseurId, items:panierAchat.slice(), total, montantPaye, numero:'A-'+Date.now().toString().slice(-8)};
-  await put('achats', achat); ACHATS.push(achat);
+    const achat = {id:uid(), date:nowISO(), fournisseurId, items:panierAchat.slice(), total, montantPaye, numero:'A-'+Date.now().toString().slice(-8)};
+    await put('achats', achat); ACHATS.push(achat);
 
-  for(const l of panierAchat){
-    const p = PRODUITS.find(x=>x.id===l.produitId);
-    if(p){ p.stock=(p.stock||0)+l.qte; p.prixAchat = l.prixAchat; await put('produits', p); }
-  }
-  remplirSelectProduits();
+    for(const l of panierAchat){
+      const p = PRODUITS.find(x=>x.id===l.produitId);
+      if(p){ p.stock=(p.stock||0)+l.qte; p.prixAchat = l.prixAchat; await put('produits', p); }
+    }
+    remplirSelectProduits();
 
-  const reste = total - montantPaye;
-  if(fournisseurId && reste>0){
-    const f = FOURNISSEURS.find(x=>x.id===fournisseurId);
-    if(f){ f.solde=(f.solde||0)+reste; await put('fournisseurs', f); }
-  }
-  if(montantPaye>0){
-    const mvt = {id:uid(), date:nowISO(), type:'sortie', montant:montantPaye, motif:'Achat '+achat.numero, lien:{type:'achat', id:achat.id}};
-    await put('caisse', mvt); CAISSE.push(mvt);
-  }
-  panierAchat=[]; renderPanierAchat();
-  document.getElementById('achatFournisseur').value='';
-  toast('Achat enregistré');
+    const reste = total - montantPaye;
+    if(fournisseurId && reste>0){
+      const f = FOURNISSEURS.find(x=>x.id===fournisseurId);
+      if(f){ f.solde=(f.solde||0)+reste; await put('fournisseurs', f); }
+    }
+    if(montantPaye>0){
+      const mvt = {id:uid(), date:nowISO(), type:'sortie', montant:montantPaye, motif:'Achat '+achat.numero, lien:{type:'achat', id:achat.id}};
+      await put('caisse', mvt); CAISSE.push(mvt);
+    }
+    panierAchat=[]; renderPanierAchat();
+    document.getElementById('achatFournisseur').value='';
+    toast('Achat enregistré');
+  });
 }
 
 /* ===================== HISTORIQUE ===================== */
@@ -1297,18 +1411,22 @@ function renderHistorique(){
     const list = VENTES.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
     card.innerHTML = list.length ? list.map(v=>{
       const c = CLIENTS.find(x=>x.id===v.clientId);
+      const retours = RETOURS_VENTE.filter(r=>r.venteId===v.id);
+      const montantRetour = retours.reduce((s,r)=>s+r.montant,0);
       return `<div class="list-item" onclick="openVenteDetail('${v.id}')" style="cursor:pointer;">
-        <div><div class="name">${v.numero} ${c?'· '+c.nom:''}</div><div class="meta">${dateFR(v.date)}</div></div>
-        <div class="amount">${fmt(v.total)}</div>
+        <div><div class="name">${v.numero} ${c?'· '+c.nom:''} ${montantRetour>0?'<span class="pill warn">Retour</span>':''}</div><div class="meta">${dateFR(v.date)}</div></div>
+        <div class="amount">${fmt(v.total)}${montantRetour>0?' <span class="meta neg" style="font-weight:700;">(-'+fmt(montantRetour)+')</span>':''}</div>
       </div>`;
     }).join('') : '<div class="empty">Aucune vente enregistrée</div>';
   } else {
     const list = ACHATS.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
     card.innerHTML = list.length ? list.map(a=>{
       const f = FOURNISSEURS.find(x=>x.id===a.fournisseurId);
+      const retours = RETOURS_ACHAT.filter(r=>r.achatId===a.id);
+      const montantRetour = retours.reduce((s,r)=>s+r.montant,0);
       return `<div class="list-item" onclick="openAchatDetail('${a.id}')" style="cursor:pointer;">
-        <div><div class="name">${a.numero} ${f?'· '+f.nom:''}</div><div class="meta">${dateFR(a.date)}</div></div>
-        <div class="amount">${fmt(a.total)}</div>
+        <div><div class="name">${a.numero} ${f?'· '+f.nom:''} ${montantRetour>0?'<span class="pill warn">Retour</span>':''}</div><div class="meta">${dateFR(a.date)}</div></div>
+        <div class="amount">${fmt(a.total)}${montantRetour>0?' <span class="meta neg" style="font-weight:700;">(-'+fmt(montantRetour)+')</span>':''}</div>
       </div>`;
     }).join('') : '<div class="empty">Aucun achat enregistré</div>';
   }
@@ -1402,13 +1520,61 @@ function soldeCaisseActuel(){
   return CAISSE.reduce((s,m)=> s + (m.type==='entree'? m.montant : -m.montant), 0);
 }
 
+/* ===================== SAUVEGARDE : EXPORT / IMPORT JSON ===================== */
+async function exporterDonnees(){
+  const data = {
+    version: DB_VERSION,
+    exporteLe: nowISO(),
+    produits: PRODUITS, clients: CLIENTS, fournisseurs: FOURNISSEURS,
+    ventes: VENTES, achats: ACHATS, caisse: CAISSE,
+    retoursVente: RETOURS_VENTE, retoursAchat: RETOURS_ACHAT
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dstamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = 'mesventes-sauvegarde-'+dstamp+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Export terminé');
+}
+async function importerDonnees(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  if(!confirm("Importer va REMPLACER toutes les données actuelles par celles du fichier. Continuer ?")){
+    evt.target.value=''; return;
+  }
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const stores = {produits:'produits', clients:'clients', fournisseurs:'fournisseurs', ventes:'ventes', achats:'achats', caisse:'caisse', retoursVente:'retoursVente', retoursAchat:'retoursAchat'};
+    for(const key of Object.keys(stores)){
+      const items = Array.isArray(data[key]) ? data[key] : [];
+      // Vide le store puis réinsère
+      await new Promise((resolve,reject)=>{
+        const r = txStore(stores[key], 'readwrite').clear();
+        r.onsuccess = resolve; r.onerror = reject;
+      });
+      for(const item of items){ await put(stores[key], item); }
+    }
+    PRODUITS = data.produits||[]; CLIENTS = data.clients||[]; FOURNISSEURS = data.fournisseurs||[];
+    VENTES = data.ventes||[]; ACHATS = data.achats||[]; CAISSE = data.caisse||[];
+    RETOURS_VENTE = data.retoursVente||[]; RETOURS_ACHAT = data.retoursAchat||[];
+    remplirSelectProduits(); remplirSelectClients(); remplirSelectFournisseurs();
+    renderBilan(); renderClients(); renderFournisseurs(); renderStock(); renderHistorique();
+    toast('Import réussi');
+  }catch(e){
+    toast("Fichier invalide : "+e.message);
+  }
+  evt.target.value='';
+}
+
 /* ===================== BILAN / DASHBOARD ===================== */
 function setPeriode(p){
   periodeActuelle = p;
-  ['Jour','Semaine','Mois','Annee','Perso'].forEach(x=>{
+  ['Jour','Semaine','Mois'].forEach(x=>{
     document.getElementById('periode'+x).classList.toggle('active', x.toLowerCase()===p);
   });
-  document.getElementById('persoDatesCard').style.display = p==='perso' ? 'grid' : 'none';
   renderBilan();
 }
 function debutPeriode(p){
@@ -1416,24 +1582,10 @@ function debutPeriode(p){
   if(p==='jour'){ d.setHours(0,0,0,0); return d; }
   if(p==='semaine'){ const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); d.setHours(0,0,0,0); return d; }
   if(p==='mois'){ d.setDate(1); d.setHours(0,0,0,0); return d; }
-  if(p==='annee'){ d.setMonth(0,1); d.setHours(0,0,0,0); return d; }
-  if(p==='perso'){
-    const v = document.getElementById('persoDateDebut').value;
-    return v ? new Date(v+'T00:00:00') : new Date(0);
-  }
-  return new Date(0);
-}
-function finPeriode(p){
-  if(p==='perso'){
-    const v = document.getElementById('persoDateFin').value;
-    return v ? new Date(v+'T23:59:59') : new Date();
-  }
-  return new Date();
 }
 function renderBilan(){
   const debut = debutPeriode(periodeActuelle);
-  const fin = finPeriode(periodeActuelle);
-  const ventesPeriode = VENTES.filter(v=> { const d=new Date(v.date); return d >= debut && d <= fin; });
+  const ventesPeriode = VENTES.filter(v=> new Date(v.date) >= debut);
   const totalVentes = ventesPeriode.reduce((s,v)=>s+v.total,0);
   const benefice = ventesPeriode.reduce((s,v)=> s + v.items.reduce((ss,l)=> ss + (l.prixVente - (l.prixAchat||0))*l.qte, 0), 0);
   const totalCredits = CLIENTS.reduce((s,c)=>s+(c.solde||0),0);
