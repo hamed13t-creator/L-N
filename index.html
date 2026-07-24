@@ -24,6 +24,30 @@
     --green:#2C7A4B;
     --radius:14px;
   }
+  [data-theme="dark"]{
+    --navy:#123B3C;
+    --navy-dark:#081E1F;
+    --amber:#F4A100;
+    --amber-dark:#FFB703;
+    --bg:#12181A;
+    --card:#1B2426;
+    --text:#EDEFEE;
+    --muted:#93A19D;
+    --line:#2E3A3A;
+    --red:#E5695A;
+    --green:#4CAF7D;
+  }
+  [data-theme="dark"] .pill.credit{background:#3A2320; color:var(--red);}
+  [data-theme="dark"] .pill.ok{background:#1F3A2B; color:var(--green);}
+  [data-theme="dark"] .pill.warn{background:#3A2E10; color:#F4C24A;}
+  [data-theme="dark"] input, [data-theme="dark"] select{ background:#20292B; border-color:var(--line); color:var(--text); }
+  [data-theme="dark"] .segmented{ background:#20292B; }
+  [data-theme="dark"] .receipt{ background:#1B2426; border-color:#3A4A4A; color:var(--text); }
+  .theme-toggle{
+    background:rgba(255,255,255,.12); border:none; color:#fff; border-radius:10px;
+    width:34px; height:34px; font-size:16px; display:flex; align-items:center; justify-content:center;
+    margin-left:8px; flex-shrink:0;
+  }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;}
   body{
@@ -149,7 +173,10 @@
     <h1 id="headerTitle">VendaMobile</h1>
     <div class="sub" id="headerSub">Gestion vendeur ambulant</div>
   </div>
-  <div style="text-align:right; font-size:11px; opacity:.85;" id="clockBox"></div>
+  <div style="display:flex; align-items:center;">
+    <div style="text-align:right; font-size:11px; opacity:.85;" id="clockBox"></div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+  </div>
 </header>
 
 <main>
@@ -658,6 +685,26 @@ function dateFR(iso){
   const d = new Date(iso);
   return d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 }
+/* ===================== THEME (clair/sombre) ===================== */
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeToggle').textContent = theme==='dark' ? '☀️' : '🌙';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', theme==='dark' ? '#081E1F' : '#0F3D3E');
+}
+function toggleTheme(){
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current==='dark' ? 'light' : 'dark';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+}
+function initTheme(){
+  const saved = localStorage.getItem('theme');
+  if(saved){ applyTheme(saved); return; }
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+}
+initTheme();
 // Empêche les doubles soumissions (double-tap) sur les actions asynchrones critiques
 async function withLock(btn, fn){
   if(!btn || btn.disabled) return;
