@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>VendaMobile</title>
+<title>TAJER</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0F3D3E">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -170,8 +170,8 @@
 
 <header>
   <div>
-    <h1 id="headerTitle">VendaMobile</h1>
-    <div class="sub" id="headerSub">Gestion vendeur ambulant</div>
+    <h1 id="headerTitle">TAJER</h1>
+    <div class="sub" id="headerSub">Ta caisse, ton stock, tes clients</div>
   </div>
   <div style="display:flex; align-items:center;">
     <div style="text-align:right; font-size:11px; opacity:.85;" id="clockBox"></div>
@@ -782,7 +782,7 @@ async function enregistrerProduit(){
     remplirSelectProduits();
     renderStock();
     closeModal('modalProduit');
-    toast('Produit enregistré');
+    toast('Produit enregistré ✓');
   });
 }
 function renderStock(){
@@ -791,7 +791,7 @@ function renderStock(){
   const q = (document.getElementById('stockSearch').value||'').toLowerCase();
   const list = PRODUITS.filter(p=>p.nom.toLowerCase().includes(q)).sort((a,b)=>a.nom.localeCompare(b.nom));
   document.getElementById('stockValeurTotale').textContent = fmt(PRODUITS.reduce((s,p)=>s+(p.stock||0)*(p.prixAchat||0),0));
-  if(list.length===0){ listCard.innerHTML = '<div class="empty">Aucun produit</div>'; return; }
+  if(list.length===0){ listCard.innerHTML = '<div class="empty">Aucun produit pour l\'instant.<br>Ajoute ton premier article pour commencer à vendre.</div>'; return; }
   listCard.innerHTML = list.map(p=>{
     const seuil = p.seuilAlerte!=null ? p.seuilAlerte : 5;
     const stockBas = (p.stock||0) <= seuil;
@@ -937,13 +937,13 @@ async function validerVente(){
     document.getElementById('venteClient').value='';
     document.getElementById('venteMontantPaye').value='';
     setModePaiement('comptant');
-    toast('Vente enregistrée');
+    toast('Vente enregistrée ✓');
   });
 }
 function afficherRecuVente(vente){
   const client = CLIENTS.find(c=>c.id===vente.clientId);
   let txt = '';
-  txt += '      VENDAMOBILE\n';
+  txt += '         TAJER\n';
   txt += '------------------------\n';
   txt += 'Bon: '+vente.numero+'\n';
   txt += dateFR(vente.date)+'\n';
@@ -1228,7 +1228,7 @@ async function enregistrerClient(){
   if(window._clientModalContext==='vente'){
     document.getElementById('venteClient').value = c.id;
   }
-  toast('Client enregistré');
+  toast('Client enregistré ✓');
 }
 function caClient(id){
   const c = CLIENTS.find(x=>x.id===id);
@@ -1250,7 +1250,7 @@ function renderClients(){
     list = list.sort((a,b)=> (b.solde||0)-(a.solde||0));
   }
   const card = document.getElementById('clientListCard');
-  if(list.length===0){ card.innerHTML = '<div class="empty">Aucun client. Ajoute-en un depuis une vente à crédit, ou :</div><button class="btn outline block" onclick="openClientModal()">+ Nouveau client</button>'; return; }
+  if(list.length===0){ card.innerHTML = '<div class="empty">Aucun client enregistré pour l\'instant.</div><button class="btn outline block" onclick="openClientModal()">+ Ajouter un client</button>'; return; }
   card.innerHTML = '<button class="btn outline block" style="margin-bottom:8px;" onclick="openClientModal()">+ Nouveau client</button>' +
     list.map(c=>`
     <div class="list-item" onclick="openClientDetail('${c.id}')" style="cursor:pointer;">
@@ -1277,7 +1277,7 @@ function openClientDetail(id){
     <div class="list-item" onclick="openVenteDetail('${v.id}')" style="cursor:pointer;">
       <div><div class="name">${v.numero}</div><div class="meta">${dateFR(v.date)}</div></div>
       <div class="amount">${fmt(v.total)}</div>
-    </div>`).join('') : '<div class="empty">Aucune vente</div>';
+    </div>`).join('') : '<div class="empty">Aucune vente avec ce client pour le moment.</div>';
   openModal('modalClientDetail');
 }
 async function encaisserPaiementClient(){
@@ -1291,7 +1291,7 @@ async function encaisserPaiementClient(){
   await put('caisse', mvt); CAISSE.push(mvt);
   closeModal('modalClientDetail');
   renderClients();
-  toast('Paiement encaissé');
+  toast('Paiement encaissé ✓');
 }
 
 /* ===================== FOURNISSEURS / ACHATS ===================== */
@@ -1346,7 +1346,7 @@ async function enregistrerFournisseur(){
   await put('fournisseurs', f);
   remplirSelectFournisseurs(); renderFournisseurs();
   closeModal('modalFournisseur');
-  toast('Fournisseur enregistré');
+  toast('Fournisseur enregistré ✓');
 }
 function achatsRealisesFournisseur(id){
   const f = FOURNISSEURS.find(x=>x.id===id);
@@ -1354,7 +1354,7 @@ function achatsRealisesFournisseur(id){
 }
 function renderFournisseurs(){
   const card = document.getElementById('fournisseurListCard');
-  if(FOURNISSEURS.length===0){ card.innerHTML='<div class="empty">Aucun fournisseur</div>'; return; }
+  if(FOURNISSEURS.length===0){ card.innerHTML='<div class="empty">Aucun fournisseur pour l\'instant.<br>Ajoute-en un pour suivre tes achats.</div>'; return; }
   card.innerHTML = FOURNISSEURS.map(f=>`
     <div class="list-item" onclick="openFournisseurDetail('${f.id}')" style="cursor:pointer;">
       <div><div class="name">${f.nom}</div><div class="meta">${f.tel||'—'} · Achats: ${fmt(achatsRealisesFournisseur(f.id))}</div></div>
@@ -1375,7 +1375,7 @@ function openFournisseurDetail(id){
     <div class="list-item" onclick="openAchatDetail('${a.id}')" style="cursor:pointer;">
       <div><div class="name">${a.numero}</div><div class="meta">${dateFR(a.date)}</div></div>
       <div class="amount">${fmt(a.total)}</div>
-    </div>`).join('') : '<div class="empty">Aucun achat</div>';
+    </div>`).join('') : '<div class="empty">Aucun achat avec ce fournisseur pour le moment.</div>';
   openModal('modalFournisseurDetail');
 }
 async function payerFournisseur(){
@@ -1389,7 +1389,7 @@ async function payerFournisseur(){
   await put('caisse', mvt); CAISSE.push(mvt);
   closeModal('modalFournisseurDetail');
   renderFournisseurs();
-  toast('Paiement effectué');
+  toast('Paiement effectué ✓');
 }
 function ajouterLigneAchat(){
   const pid = document.getElementById('achatProduitSelect').value;
@@ -1453,7 +1453,7 @@ async function validerAchat(){
     }
     panierAchat=[]; renderPanierAchat();
     document.getElementById('achatFournisseur').value='';
-    toast('Achat enregistré');
+    toast('Achat enregistré ✓');
   });
 }
 
@@ -1477,7 +1477,7 @@ function renderHistorique(){
         <div><div class="name">${v.numero} ${c?'· '+c.nom:''} ${montantRetour>0?'<span class="pill warn">Retour</span>':''}</div><div class="meta">${dateFR(v.date)}</div></div>
         <div class="amount">${fmt(v.total)}${montantRetour>0?' <span class="meta neg" style="font-weight:700;">(-'+fmt(montantRetour)+')</span>':''}</div>
       </div>`;
-    }).join('') : '<div class="empty">Aucune vente enregistrée</div>';
+    }).join('') : '<div class="empty">Aucune vente enregistrée pour l\'instant.<br>Ta première vente apparaîtra ici.</div>';
   } else {
     const list = ACHATS.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
     card.innerHTML = list.length ? list.map(a=>{
@@ -1488,7 +1488,7 @@ function renderHistorique(){
         <div><div class="name">${a.numero} ${f?'· '+f.nom:''} ${montantRetour>0?'<span class="pill warn">Retour</span>':''}</div><div class="meta">${dateFR(a.date)}</div></div>
         <div class="amount">${fmt(a.total)}${montantRetour>0?' <span class="meta neg" style="font-weight:700;">(-'+fmt(montantRetour)+')</span>':''}</div>
       </div>`;
-    }).join('') : '<div class="empty">Aucun achat enregistré</div>';
+    }).join('') : '<div class="empty">Aucun achat enregistré pour l\'instant.</div>';
   }
 }
 
@@ -1522,7 +1522,7 @@ async function enregistrerMouvement(){
   await put('caisse', mvt); CAISSE.push(mvt);
   closeModal('modalMouvement');
   renderBilan();
-  toast('Mouvement enregistré');
+  toast('Mouvement enregistré ✓');
 }
 function totalInvesti(){
   return CAISSE.filter(m=>m.categorie==='investissement').reduce((s,m)=>s+m.montant,0);
@@ -1565,7 +1565,7 @@ async function enregistrerModifMouvement(){
   await put('caisse', m);
   closeModal('modalMouvementDetail');
   renderBilan();
-  toast('Mouvement modifié');
+  toast('Mouvement modifié ✓');
 }
 async function supprimerMouvement(){
   const id = window._currentMouvementId;
@@ -1596,7 +1596,7 @@ async function exporterDonnees(){
   a.href = url; a.download = 'mesventes-sauvegarde-'+dstamp+'.json';
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-  toast('Export terminé');
+  toast('Sauvegarde exportée ✓');
 }
 async function importerDonnees(evt){
   const file = evt.target.files[0];
@@ -1622,7 +1622,7 @@ async function importerDonnees(evt){
     RETOURS_VENTE = data.retoursVente||[]; RETOURS_ACHAT = data.retoursAchat||[];
     remplirSelectProduits(); remplirSelectClients(); remplirSelectFournisseurs();
     renderBilan(); renderClients(); renderFournisseurs(); renderStock(); renderHistorique();
-    toast('Import réussi');
+    toast('Données restaurées ✓');
   }catch(e){
     toast("Fichier invalide : "+e.message);
   }
@@ -1687,7 +1687,7 @@ function renderBilan(){
       <div><div class="name">${badge}${m.motif}</div><div class="meta">${dateFR(m.date)}</div></div>
       <div class="amount ${m.type==='entree'?'pos':'neg'}">${m.type==='entree'?'+':'-'}${fmt(m.montant)}</div>
     </div>`;
-  }).join('') : '<div class="empty">Aucun mouvement de caisse</div>';
+  }).join('') : '<div class="empty">Aucun mouvement de caisse pour l\'instant.</div>';
 }
 
 /* ===================== HORLOGE ===================== */
